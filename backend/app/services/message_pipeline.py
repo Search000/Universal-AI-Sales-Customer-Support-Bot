@@ -39,7 +39,14 @@ ORDER_NOT_AVAILABLE = (
 
 
 class MessagePipeline:
-    def __init__(self, engine: KnowledgeEngine, gemini_client=None, memory_service=None, order_engine=None):
+    def __init__(
+        self,
+        engine: KnowledgeEngine,
+        gemini_client=None,
+        memory_service=None,
+        order_engine=None,
+        learning_engine=None,
+    ):
         self._engine = engine
         # Optional Phase 5 AI client. None = deterministic responses only
         # (this is also what every existing Phase 1-4 test still exercises).
@@ -50,7 +57,29 @@ class MessagePipeline:
         # Optional Phase 7 order engine. None = ORDER_INTENT falls back to
         # a safe "not available yet" message instead of guessing an order.
         self._order_engine = order_engine
+        # Optional Phase 8 learning engine. None = unknown terms are simply
+        # not queued (still safe — they just don't get a "not found"
+        # follow-up learning entry; no fact is ever invented either way).
+        self._learning_engine = learning_engine
         self._context: Dict[Tuple[str, str], Entities] = {}
+
+    def _queue_unknown_terms(self, business_id: str, entities: Entities, message: str) -> None:
+        """Phase 8: when a lookup comes back empty, offer the unrecognized
+        keywords to the learning queue for owner review. This NEVER creates
+        a product/service/vocabulary fact by itself (master rule #7) — it
+        only flags candidates a human can later approve."""
+        if self._learning_engine is None or not entities.keywords:
+            return
+        try:
+            unknown = self._learning_engine.find_unrecognized_keywords(
+                business_id, entities.keywords
+            )
+            for term in unknown:
+                self._learning_engine.record_unknown_term(
+                    business_id, term, context=message
+                )
+        except Exception:
+            logger.exception("Learning queue update failed — continuing without it")
 
     def handle_message(self, business_id: str, customer_id: str, message: str) -> dict:
         if not business_id or not str(business_id).strip():
@@ -99,6 +128,7 @@ class MessagePipeline:
 
             if not products:
                 response = PRODUCT_NOT_FOUND
+                self._queue_unknown_terms(business_id, entities, message)
             else:
                 product = products[0]
                 if intent_result.intent == "PRICE_INQUIRY":
@@ -134,6 +164,7 @@ class MessagePipeline:
                 )
                 if not candidates:
                     response = PRODUCT_NOT_FOUND
+                    self._queue_unknown_terms(business_id, entities, message)
                 else:
                     product = candidates[0]
                     retrieved_data = {"products": [asdict(product)]}

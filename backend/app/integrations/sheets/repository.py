@@ -17,6 +17,7 @@ from app.models.business_rule import BusinessRule
 from app.models.vocabulary import Vocabulary
 from app.models.conversation_memory import ConversationMemory
 from app.models.order import Order
+from app.models.learning_queue import LearningQueueEntry
 
 logger = logging.getLogger(__name__)
 
@@ -155,6 +156,55 @@ class SheetsRepository:
             if vocab.term.lower() == term.lower():
                 return vocab
         return None
+
+    def save_vocabulary(self, vocab: Vocabulary) -> None:
+        """Write an owner-approved vocabulary row. Called only from the
+        learning engine's approve() path — never directly from customer
+        input (master rule #7)."""
+        self._require_business_id(vocab.business_id)
+        self._client.upsert_row(
+            "VOCABULARY",
+            key_fields={"vocab_id": vocab.vocab_id},
+            row=vocab.to_row(),
+        )
+
+    # ---- LEARNING_QUEUE (Phase 8) -----------------------------------------
+    def create_learning_entry(self, entry: LearningQueueEntry) -> None:
+        self._require_business_id(entry.business_id)
+        self._client.upsert_row(
+            "LEARNING_QUEUE",
+            key_fields={"learning_id": entry.learning_id},
+            row=entry.to_row(),
+        )
+
+    def list_learning_queue(
+        self, business_id: str, status: Optional[str] = None
+    ) -> List[LearningQueueEntry]:
+        business_id = self._require_business_id(business_id)
+        rows = self._client.get_all_records("LEARNING_QUEUE")
+        results = []
+        for row in rows:
+            entry = LearningQueueEntry.from_row(row)
+            if not entry or entry.business_id != business_id:
+                continue
+            if status and entry.status != status:
+                continue
+            results.append(entry)
+        return results
+
+    def get_learning_entry(self, business_id: str, learning_id: str) -> Optional[LearningQueueEntry]:
+        for entry in self.list_learning_queue(business_id):
+            if entry.learning_id == learning_id:
+                return entry
+        return None
+
+    def update_learning_entry(self, entry: LearningQueueEntry) -> None:
+        self._require_business_id(entry.business_id)
+        self._client.upsert_row(
+            "LEARNING_QUEUE",
+            key_fields={"learning_id": entry.learning_id},
+            row=entry.to_row(),
+        )
 
     # ---- CONVERSATION_MEMORY (Phase 6) ---------------------------------
     def get_conversation_memory(

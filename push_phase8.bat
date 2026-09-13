@@ -1,6 +1,7 @@
 @echo off
 REM ============================================
-REM  Phase 7 push helper — just double-click this
+REM  Phase 8 push helper — just double-click this
+REM  Fully automatic: installs deps, tests, commits, pushes.
 REM ============================================
 cd /d "%~dp0"
 
@@ -13,15 +14,24 @@ echo.
 echo [2/4] Running tests...
 set PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
 python -m pytest -q
+if errorlevel 1 (
+    echo.
+    echo ============================================
+    echo   TESTS FAILED. Not pushing broken code.
+    echo   Scroll up, fix the red errors, run again.
+    echo ============================================
+    pause
+    exit /b 1
+)
 
 echo.
 echo [3/4] Going back to project folder...
 cd ..
 
 echo.
-echo [4/4] Pushing to GitHub...
+echo [4/4] Committing and pushing to GitHub...
 git add -A
-git commit -m "Phase 7: order engine"
+git commit -m "Phase 8: learning engine (unknown-term queue + owner approval)"
 git push
 
 echo.

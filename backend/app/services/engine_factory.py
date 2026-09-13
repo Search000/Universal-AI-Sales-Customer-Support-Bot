@@ -15,6 +15,7 @@ from app.services.knowledge_engine import KnowledgeEngine
 from app.services.message_pipeline import MessagePipeline
 from app.services.memory_service import MemoryService
 from app.services.order_engine import OrderEngine
+from app.services.learning_engine import LearningEngine
 from app.integrations.gemini.client import GeminiClient
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,7 @@ def get_message_pipeline() -> MessagePipeline:
     engine = KnowledgeEngine(repo)
     memory_service = MemoryService(repo)
     order_engine = OrderEngine(engine, repo)
+    learning_engine = LearningEngine(engine, repo)
 
     gemini_client = None
     if config.GEMINI_API_KEY:
@@ -57,5 +59,14 @@ def get_message_pipeline() -> MessagePipeline:
         gemini_client=gemini_client,
         memory_service=memory_service,
         order_engine=order_engine,
+        learning_engine=learning_engine,
     )
     return _pipeline
+
+
+def get_learning_engine() -> LearningEngine:
+    """Reuses the same repository/knowledge_engine as the pipeline so the
+    learning queue and message pipeline are always looking at the same
+    data source (real Sheets or fake, whichever get_message_pipeline set up)."""
+    get_message_pipeline()
+    return _pipeline._learning_engine

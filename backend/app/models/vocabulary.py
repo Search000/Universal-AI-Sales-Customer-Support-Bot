@@ -1,3 +1,4 @@
+import uuid
 from dataclasses import dataclass
 from typing import Optional
 
@@ -14,6 +15,10 @@ class Vocabulary:
     updated_at: str = ""
 
     @staticmethod
+    def new_id() -> str:
+        return f"vocab_{uuid.uuid4().hex[:10]}"
+
+    @staticmethod
     def from_row(row: dict) -> Optional["Vocabulary"]:
         if not row.get("vocab_id") or not row.get("business_id") or not row.get("term"):
             return None
@@ -27,3 +32,15 @@ class Vocabulary:
             approved=row.get("approved", "FALSE"),
             updated_at=row.get("updated_at", ""),
         )
+
+    def to_row(self) -> dict:
+        return {
+            "vocab_id": self.vocab_id,
+            "business_id": self.business_id,
+            "term": self.term,
+            "meaning": self.meaning,
+            "category": self.category,
+            "examples": self.examples,
+            "approved": self.approved,
+            "updated_at": self.updated_at,
+        }

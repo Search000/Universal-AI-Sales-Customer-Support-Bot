@@ -91,3 +91,40 @@ Platform webhook (FB/WhatsApp)
 
 No Google Sheets, AI calls, or platform integrations yet — those are Phases
 2 onward, one at a time.
+
+## 8. What Phase 8 delivers (Learning Engine)
+
+Implements the LEARNING_QUEUE described in master-prompt section 8, with
+one hard rule enforced in code: **no code path other than
+`LearningEngine.approve()` is allowed to write a VOCABULARY row.**
+
+- `models/learning_queue.py` — `LearningQueueEntry`, mirrors the
+  `LEARNING_QUEUE` sheet tab (learning_id, business_id, term,
+  possible_meaning, context, confidence, source, status, created_at,
+  approved_by, approved_at, reviewed_at).
+- `integrations/sheets/repository.py` — CRUD for `LEARNING_QUEUE`, plus
+  `save_vocabulary()` (the only writer for `VOCABULARY`, only ever called
+  from the approve path).
+- `services/learning_engine.py`:
+  - `find_unrecognized_keywords()` — of the keywords the language engine
+    pulled out of a message, returns the ones that don't match any known
+    product/service name or already-approved vocabulary for *this*
+    business_id.
+  - `record_unknown_term()` — queues a candidate as `pending`. Repeated
+    mentions of the same term don't create duplicate pending rows (a
+    customer repeating a claim still doesn't make it a fact — master rule
+    #7).
+  - `approve()` — requires an explicit human-supplied meaning; writes an
+    approved `VOCABULARY` row and marks the queue entry `approved`.
+  - `reject()` — closes the entry with no vocabulary created.
+- `services/message_pipeline.py` — when a product/order lookup comes back
+  empty, unrecognized keywords from that message are queued automatically
+  (best-effort; a learning-queue failure never breaks the customer-facing
+  reply).
+- `api/routes/learning.py` — owner-only endpoints: `GET /learning`,
+  `POST /learning/<id>/approve`, `POST /learning/<id>/reject`.
+
+Tested: known-word vs unknown-word detection, per-business isolation of
+the queue, duplicate-suppression, approve requiring a meaning, double
+approve/reject rejected, and the end-to-end route flow
+(message → queued → approved → resolvable vocabulary).

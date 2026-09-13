@@ -22,4 +22,7 @@ def create_app() -> Flask:
     from app.api.routes.test_message import test_message_bp
     app.register_blueprint(test_message_bp)
 
+    from app.api.routes.learning import learning_bp
+    app.register_blueprint(learning_bp)
+
     return app

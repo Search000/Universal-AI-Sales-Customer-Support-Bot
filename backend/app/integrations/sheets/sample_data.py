@@ -154,4 +154,5 @@ SAMPLE_SHEETS = {
     ],
     "CONVERSATIONS": [],
     "ORDERS": [],
+    "LEARNING_QUEUE": [],
 }
