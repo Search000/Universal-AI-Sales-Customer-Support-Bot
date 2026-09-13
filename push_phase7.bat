@@ -1,6 +1,6 @@
 @echo off
 REM ============================================
-REM  Phase 6 push helper — just double-click this
+REM  Phase 7 push helper — just double-click this
 REM ============================================
 cd /d "%~dp0"
 
@@ -21,7 +21,7 @@ cd ..
 echo.
 echo [4/4] Pushing to GitHub...
 git add -A
-git commit -m "Phase 6: persistent memory"
+git commit -m "Phase 7: order engine"
 git push
 
 echo.
