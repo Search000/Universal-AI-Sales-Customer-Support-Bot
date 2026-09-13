@@ -185,3 +185,68 @@ def list_vocabulary():
     rows.sort(key=lambda r: r.get("term", "").lower())
 
     return jsonify({"vocabulary": rows, "count": len(rows)}), 200
+
+
+# Fields an owner is allowed to change via the dashboard. business_id and
+# created_at are identity fields — never editable through this endpoint.
+_EDITABLE_BUSINESS_FIELDS = {
+    "business_name",
+    "business_type",
+    "facebook_page_id",
+    "whatsapp_phone_number_id",
+    "phone",
+    "email",
+    "address",
+    "opening_hours",
+    "currency",
+    "default_language",
+    "status",
+}
+
+
+@dashboard_bp.get("/dashboard/settings")
+def get_settings():
+    business_id = request.args.get("business_id")
+    if not business_id:
+        return jsonify({"error": "business_id is required"}), 400
+
+    repo = get_repository()
+    try:
+        business = repo.get_business(business_id)
+    except BusinessIdRequiredError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    if business is None:
+        return jsonify({"error": "business not found"}), 404
+
+    return jsonify({"settings": asdict(business)}), 200
+
+
+@dashboard_bp.post("/dashboard/settings")
+def update_settings():
+    data = request.get_json(silent=True) or {}
+    business_id = data.get("business_id")
+    if not business_id:
+        return jsonify({"error": "business_id is required"}), 400
+
+    repo = get_repository()
+    try:
+        business = repo.get_business(business_id)
+    except BusinessIdRequiredError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    if business is None:
+        return jsonify({"error": "business not found"}), 404
+
+    # Partial update: only touch fields the owner actually sent, and only
+    # ones on the allowed list — business_id/created_at can never change
+    # through this endpoint no matter what the request body contains.
+    updated_fields = []
+    for field, value in data.items():
+        if field in _EDITABLE_BUSINESS_FIELDS:
+            setattr(business, field, value)
+            updated_fields.append(field)
+
+    repo.update_business(business)
+
+    return jsonify({"status": "updated", "updated_fields": updated_fields, "settings": asdict(business)}), 200

@@ -49,6 +49,18 @@ class SheetsRepository:
                 return biz
         return None
 
+    def update_business(self, business: Business) -> None:
+        """Save changes to an existing business's own settings row (name,
+        contact info, hours, channel IDs, etc). Never used to create a new
+        business or to touch another business's row — caller must always
+        load the existing Business first via get_business()."""
+        self._require_business_id(business.business_id)
+        self._client.upsert_row(
+            "BUSINESSES",
+            key_fields={"business_id": business.business_id},
+            row=business.__dict__,
+        )
+
     def get_business_by_facebook_page_id(self, page_id: str) -> Optional[Business]:
         """Identify WHICH business a Messenger webhook event belongs to.
 
