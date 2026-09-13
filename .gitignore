@@ -1,0 +1,14 @@
+# secrets
+.env
+*.json
+!package.json
+
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+venv/
+.venv/
+
+# os
+.DS_Store
