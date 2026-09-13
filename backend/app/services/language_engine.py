@@ -30,6 +30,18 @@ COLOR_SYNONYMS: Dict[str, str] = {
 
 SIZE_TOKENS = {"xs", "s", "m", "l", "xl", "xxl", "xxxl", "3xl", "freesize"}
 
+# Words that mark a nearby number as an actual item quantity, not some
+# other number in the message (phone number, address, price, etc).
+QUANTITY_UNIT_WORDS = {
+    "ta", "টা", "টি", "pc", "pcs", "piece", "pieces", "qty", "quantity",
+    "copy", "কপি", "set", "সেট",
+}
+
+# A quantity a customer would realistically type by hand. Anything longer
+# (phone numbers are 10-11 digits, addresses/postal codes vary) is almost
+# certainly NOT a quantity — see extract_entities().
+_MAX_PLAUSIBLE_QUANTITY_DIGITS = 3
+
 PRICE_KEYWORDS = ["price", "dam", "daam", "কত", "দাম", "koto", "কত টাকা", "দাম কত", "cost", "rate"]
 
 AVAILABILITY_KEYWORDS = ["available", "ache", "আছে", "stock", "পাওয়া যাবে", "pawa jabe", "in stock"]
@@ -168,10 +180,26 @@ def extract_entities(message: str) -> Entities:
 
     keywords = [t for t in tokens if t not in STOPWORDS and len(t) > 1 and not t.isdigit()]
 
+    # Quantity: a message can contain several unrelated numbers (a phone
+    # number, an address, a price) — naively taking "the first digit
+    # token" misreads a phone number as the order quantity (e.g. "amar
+    # phone 01711111111" -> quantity=1711111111), which then wrongly
+    # fails the order as "out of stock". Prefer a digit token sitting
+    # right next to a quantity word ("2 ta", "৩ pcs"); only fall back to
+    # a bare number if it's short enough to plausibly BE a quantity —
+    # never a long run of digits like a phone number or postal code.
     quantity = None
-    for token in tokens:
-        if token.isdigit():
+    for i, token in enumerate(tokens):
+        if not token.isdigit():
+            continue
+        neighbors = tokens[max(0, i - 1):i] + tokens[i + 1:i + 2]
+        if any(n in QUANTITY_UNIT_WORDS for n in neighbors):
             quantity = int(token)
             break
+    if quantity is None:
+        for token in tokens:
+            if token.isdigit() and len(token) <= _MAX_PLAUSIBLE_QUANTITY_DIGITS:
+                quantity = int(token)
+                break
 
     return Entities(color=color, size=size, keywords=keywords, quantity=quantity)

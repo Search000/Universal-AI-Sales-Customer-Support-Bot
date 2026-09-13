@@ -40,4 +40,7 @@ def create_app() -> Flask:
     from app.api.routes.onboarding import onboarding_bp
     app.register_blueprint(onboarding_bp)
 
+    from app.api.routes.dashboard_view import dashboard_view_bp
+    app.register_blueprint(dashboard_view_bp)
+
     return app

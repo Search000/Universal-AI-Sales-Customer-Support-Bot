@@ -97,3 +97,27 @@ def test_keywords_exclude_stopwords():
     assert "shirt" in entities.keywords
     assert "black" not in entities.keywords
     assert "ache" not in entities.keywords
+
+
+def test_phone_number_is_not_read_as_quantity():
+    """Regression test: a customer's phone number in the same message as
+    an order used to be misread as the quantity (e.g. quantity=1711111111
+    instead of 1), which then made the order engine wrongly reject the
+    order as 'out of stock'."""
+    entities = extract_entities(
+        "black shirt ekta order korte chai, amar naam Karim, "
+        "address Dhanmondi Dhaka, phone 01711111111"
+    )
+    assert entities.quantity is None
+
+
+def test_quantity_with_unit_word_is_detected():
+    entities = extract_entities("2 ta black shirt dorkar, phone 01711111111")
+    assert entities.quantity == 2
+
+
+def test_bare_short_number_is_still_read_as_quantity():
+    """Backward compatible: a short standalone number (not a phone/postal
+    number) is still treated as a quantity."""
+    entities = extract_entities("3 shirt lagbe")
+    assert entities.quantity == 3
