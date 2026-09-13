@@ -16,6 +16,7 @@ from app.services.message_pipeline import MessagePipeline
 from app.services.memory_service import MemoryService
 from app.services.order_engine import OrderEngine
 from app.services.learning_engine import LearningEngine
+from app.services.follow_up_engine import FollowUpEngine
 from app.integrations.gemini.client import GeminiClient
 from app.integrations.facebook.client import FacebookClient, FakeFacebookClient
 from app.integrations.whatsapp.client import WhatsAppClient, FakeWhatsAppClient
@@ -84,6 +85,17 @@ def get_repository() -> SheetsRepository:
     always looking at the same data source (real Sheets or fake)."""
     get_message_pipeline()
     return _repo
+
+
+_follow_up_engine: FollowUpEngine | None = None
+
+
+def get_follow_up_engine() -> FollowUpEngine:
+    """Reuses the same repository as everything else (Phase 13)."""
+    global _follow_up_engine
+    if _follow_up_engine is None:
+        _follow_up_engine = FollowUpEngine(get_repository())
+    return _follow_up_engine
 
 
 def get_facebook_client():
