@@ -139,3 +139,26 @@ def list_faq():
     rows.sort(key=lambda r: r.get("question", "").lower())
 
     return jsonify({"faqs": rows, "count": len(rows)}), 200
+
+
+@dashboard_bp.get("/dashboard/policies")
+def list_policies():
+    business_id = request.args.get("business_id")
+    if not business_id:
+        return jsonify({"error": "business_id is required"}), 400
+
+    active_only = request.args.get("active_only") == "true"
+
+    repo = get_repository()
+    try:
+        policies = repo.list_policies(business_id)
+    except BusinessIdRequiredError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    rows = [asdict(p) for p in policies]
+    if active_only:
+        rows = [r for r in rows if str(r.get("active", "")).upper() == "TRUE"]
+
+    rows.sort(key=lambda r: r.get("policy_type", "").lower())
+
+    return jsonify({"policies": rows, "count": len(rows)}), 200
