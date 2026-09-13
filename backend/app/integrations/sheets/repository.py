@@ -16,6 +16,7 @@ from app.models.policy import Policy
 from app.models.business_rule import BusinessRule
 from app.models.vocabulary import Vocabulary
 from app.models.conversation_memory import ConversationMemory
+from app.models.order import Order
 
 logger = logging.getLogger(__name__)
 
@@ -174,3 +175,27 @@ class SheetsRepository:
             key_fields={"business_id": memory.business_id, "customer_id": memory.customer_id},
             row=memory.to_row(),
         )
+
+    # ---- ORDERS (Phase 7) ------------------------------------------------
+    def create_order(self, order: Order) -> None:
+        self._require_business_id(order.business_id)
+        # key on order_id: a fresh order_id never matches an existing row,
+        # so this always appends rather than overwriting another order.
+        self._client.upsert_row(
+            "ORDERS",
+            key_fields={"order_id": order.order_id},
+            row=order.to_row(),
+        )
+
+    def list_orders(self, business_id: str, customer_id: Optional[str] = None) -> List[Order]:
+        business_id = self._require_business_id(business_id)
+        rows = self._client.get_all_records("ORDERS")
+        results = []
+        for row in rows:
+            order = Order.from_row(row)
+            if not order or order.business_id != business_id:
+                continue
+            if customer_id and order.customer_id != customer_id:
+                continue
+            results.append(order)
+        return results

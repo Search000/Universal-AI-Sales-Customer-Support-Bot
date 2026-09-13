@@ -1,0 +1,17 @@
+# secrets
+.env
+*.json
+!package.json
+
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+venv/
+.venv/
+
+# zip bundles (extract these locally, don't commit them)
+*.zip
+
+# os
+.DS_Store

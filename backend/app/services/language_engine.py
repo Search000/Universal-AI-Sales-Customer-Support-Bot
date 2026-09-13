@@ -44,15 +44,24 @@ POLICY_KEYWORDS: Dict[str, List[str]] = {
     "warranty": ["warranty", "ওয়ারেন্টি", "guarantee", "গ্যারান্টি"],
 }
 
+ORDER_KEYWORDS = [
+    "order", "অর্ডার", "kinbo", "কিনবো", "কিনব", "nibo", "নিবো", "নিব",
+    "confirm", "কনফার্ম", "নিতে চাই", "kinte chai", "নিতে চাচ্ছি",
+    "order korte chai", "অর্ডার করতে চাই", "book", "বুক",
+]
+
 # Words that should never be treated as a candidate product keyword.
 STOPWORDS = set(
     PRICE_KEYWORDS
     + AVAILABILITY_KEYWORDS
     + GREETING_KEYWORDS
+    + ORDER_KEYWORDS
     + list(COLOR_SYNONYMS.keys())
     + list(SIZE_TOKENS)
     + [
         "vai", "ভাই", "আমার", "আমি", "লাগবে", "চাই", "na", "না", "ki", "কি",
+        "chai", "chao", "chan", "korte", "korbo", "koro", "lagbe", "নিতে",
+        "নিব", "নিবো", "কিনব", "কিনবো",
         "er", "ta", "টা", "the", "a", "an", "is", "for", "please", "plz",
     ]
 )
@@ -70,6 +79,7 @@ class Entities:
     color: Optional[str] = None
     size: Optional[str] = None
     keywords: List[str] = field(default_factory=list)
+    quantity: Optional[int] = None
 
 
 def _tokenize(text: str) -> List[str]:
@@ -98,6 +108,9 @@ def detect_intent(message: str) -> IntentResult:
     for policy_type, kws in POLICY_KEYWORDS.items():
         if _contains_any(text, kws):
             return IntentResult("POLICY_INQUIRY", 0.85, meta={"policy_type": policy_type})
+
+    if _contains_any(text, ORDER_KEYWORDS) or _fuzzy_token_hits(tokens, ORDER_KEYWORDS):
+        return IntentResult("ORDER_INTENT", 0.85)
 
     if _contains_any(text, PRICE_KEYWORDS) or _fuzzy_token_hits(tokens, PRICE_KEYWORDS):
         return IntentResult("PRICE_INQUIRY", 0.8)
@@ -129,6 +142,12 @@ def extract_entities(message: str) -> Entities:
             size = token.upper()
             break
 
-    keywords = [t for t in tokens if t not in STOPWORDS and len(t) > 1]
+    keywords = [t for t in tokens if t not in STOPWORDS and len(t) > 1 and not t.isdigit()]
 
-    return Entities(color=color, size=size, keywords=keywords)
+    quantity = None
+    for token in tokens:
+        if token.isdigit():
+            quantity = int(token)
+            break
+
+    return Entities(color=color, size=size, keywords=keywords, quantity=quantity)

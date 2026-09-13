@@ -139,3 +139,45 @@ def test_pipeline_isolation_across_businesses(pipeline):
     result = pipeline.handle_message("biz_002", "cust_1", "black shirt price koto?")
     assert result["retrieved_data"]["products"] == []
     assert result["response"] == PRODUCT_NOT_FOUND
+
+
+# ---- Phase 7: order intent -------------------------------------------------
+def test_order_intent_without_order_engine_gives_safe_fallback(pipeline):
+    result = pipeline.handle_message("biz_001", "cust_1", "black shirt order korte chai")
+    assert result["intent"] == "ORDER_INTENT"
+    assert "না" in result["response"] or "not" in result["response"].lower()
+
+
+def test_order_intent_with_order_engine_creates_order():
+    from app.services.order_engine import OrderEngine
+
+    client = FakeSheetsClient(SAMPLE_SHEETS)
+    repo = SheetsRepository(client)
+    engine = KnowledgeEngine(repo)
+    order_engine = OrderEngine(engine, repo)
+    pipeline_with_orders = MessagePipeline(engine, order_engine=order_engine)
+
+    result = pipeline_with_orders.handle_message("biz_001", "cust_1", "black shirt 1ta order korte chai")
+    assert result["intent"] == "ORDER_INTENT"
+    assert "Order ID" in result["response"]
+    assert result["retrieved_data"]["order"]["product_id"] == "prod_001"
+
+
+def test_order_intent_remembers_product_from_previous_turn():
+    from app.services.order_engine import OrderEngine
+    from app.services.memory_service import MemoryService
+
+    client = FakeSheetsClient(SAMPLE_SHEETS)
+    repo = SheetsRepository(client)
+    engine = KnowledgeEngine(repo)
+    order_engine = OrderEngine(engine, repo)
+    memory_service = MemoryService(repo)
+    pipeline_with_orders = MessagePipeline(
+        engine, order_engine=order_engine, memory_service=memory_service
+    )
+
+    pipeline_with_orders.handle_message("biz_001", "cust_1", "black shirt XL koto?")
+    result = pipeline_with_orders.handle_message("biz_001", "cust_1", "order korte chai")
+
+    assert result["intent"] == "ORDER_INTENT"
+    assert "Order ID" in result["response"]

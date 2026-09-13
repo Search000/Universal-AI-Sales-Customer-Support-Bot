@@ -15,6 +15,9 @@ column lists, or ask me and I'll paste the exact header row for any tab).
 `CONVERSATIONS` tab columns (Phase 6 — persistent per-customer memory):
 `business_id, customer_id, last_intent, last_color, last_size, last_keywords, updated_at`
 
+`ORDERS` tab columns (Phase 7 — orders placed through the bot):
+`order_id, business_id, customer_id, product_id, product_name, quantity, unit_price, total_price, currency, status, created_at`
+
 ## 2. Create a Google service account (so the bot can read/write)
 1. Go to https://console.cloud.google.com/
 2. Create a project (any name).

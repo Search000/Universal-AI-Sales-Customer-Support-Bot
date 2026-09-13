@@ -32,9 +32,14 @@ PRODUCT_NOT_FOUND = (
     "আপনি চাইলে product-এর ছবি পাঠাতে পারেন, আমি দেখে help করতে পারি।"
 )
 
+ORDER_NOT_AVAILABLE = (
+    "দুঃখিত, order placement এই মুহূর্তে available না। "
+    "একজন human representative আপনার order confirm করে দেবে।"
+)
+
 
 class MessagePipeline:
-    def __init__(self, engine: KnowledgeEngine, gemini_client=None, memory_service=None):
+    def __init__(self, engine: KnowledgeEngine, gemini_client=None, memory_service=None, order_engine=None):
         self._engine = engine
         # Optional Phase 5 AI client. None = deterministic responses only
         # (this is also what every existing Phase 1-4 test still exercises).
@@ -42,6 +47,9 @@ class MessagePipeline:
         # Optional Phase 6 persistent memory. None = old in-memory-only dict,
         # lost on restart (still what plain Phase 1-4 tests exercise).
         self._memory_service = memory_service
+        # Optional Phase 7 order engine. None = ORDER_INTENT falls back to
+        # a safe "not available yet" message instead of guessing an order.
+        self._order_engine = order_engine
         self._context: Dict[Tuple[str, str], Entities] = {}
 
     def handle_message(self, business_id: str, customer_id: str, message: str) -> dict:
@@ -115,6 +123,39 @@ class MessagePipeline:
             policy = self._engine.get_policy(business_id, policy_type) if policy_type else None
             retrieved_data = {"policy": asdict(policy)} if policy else None
             response = policy.policy_text if policy else SAFE_FALLBACK
+
+        elif intent_result.intent == "ORDER_INTENT":
+            if self._order_engine is None:
+                response = ORDER_NOT_AVAILABLE
+            else:
+                name_hint = entities.keywords[0] if entities.keywords else None
+                candidates = self._engine.find_products(
+                    business_id, name_contains=name_hint, color=entities.color, size=entities.size
+                )
+                if not candidates:
+                    response = PRODUCT_NOT_FOUND
+                else:
+                    product = candidates[0]
+                    retrieved_data = {"products": [asdict(product)]}
+                    quantity = entities.quantity or 1
+                    result = self._order_engine.place_order(
+                        business_id, cust_id, product.product_id, quantity
+                    )
+                    if result.order is None:
+                        if result.error in ("OUT_OF_STOCK", "INSUFFICIENT_STOCK"):
+                            response = (
+                                f"দুঃখিত, {product.product_name} এই মুহূর্তে প্রয়োজনীয় পরিমাণে "
+                                f"stock-এ নেই।"
+                            )
+                        else:
+                            response = PRODUCT_NOT_FOUND
+                    else:
+                        order = result.order
+                        retrieved_data = {"order": order.to_row()}
+                        response = (
+                            f"আপনার অর্ডার confirm হয়েছে! {order.product_name} x{order.quantity} — "
+                            f"total {order.total_price} {order.currency}। Order ID: {order.order_id}।"
+                        )
 
         elif intent_result.intent == "GREETING":
             response = f"আসসালামু আলাইকুম! {business.business_name}-এ স্বাগতম। কিভাবে সাহায্য করতে পারি?"
