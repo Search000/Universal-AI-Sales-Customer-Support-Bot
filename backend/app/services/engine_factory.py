@@ -13,6 +13,7 @@ from app.integrations.sheets.repository import SheetsRepository
 from app.integrations.sheets.sample_data import SAMPLE_SHEETS
 from app.services.knowledge_engine import KnowledgeEngine
 from app.services.message_pipeline import MessagePipeline
+from app.integrations.gemini.client import GeminiClient
 
 logger = logging.getLogger(__name__)
 
@@ -36,5 +37,16 @@ def get_message_pipeline() -> MessagePipeline:
 
     repo = SheetsRepository(client)
     engine = KnowledgeEngine(repo)
-    _pipeline = MessagePipeline(engine)
+
+    gemini_client = None
+    if config.GEMINI_API_KEY:
+        try:
+            gemini_client = GeminiClient(config.GEMINI_API_KEY, config.GEMINI_MODEL)
+            logger.info("Gemini AI phrasing enabled (model=%s)", config.GEMINI_MODEL)
+        except Exception:
+            logger.exception("Failed to init Gemini client — falling back to deterministic responses")
+    else:
+        logger.warning("GEMINI_API_KEY not set — using deterministic template responses only")
+
+    _pipeline = MessagePipeline(engine, gemini_client=gemini_client)
     return _pipeline

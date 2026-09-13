@@ -11,7 +11,7 @@ test_message_bp = Blueprint("test_message", __name__)
 
 
 @test_message_bp.post("/test/message")
-def test_message():
+def handle_test_message():
     data = request.get_json(silent=True) or {}
     business_id = data.get("business_id")
     customer_id = data.get("customer_id", "test_customer")

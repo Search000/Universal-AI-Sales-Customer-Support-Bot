@@ -20,6 +20,7 @@ from typing import Dict, Optional, Tuple
 from app.integrations.sheets.repository import BusinessIdRequiredError
 from app.services.knowledge_engine import KnowledgeEngine
 from app.services.language_engine import Entities, detect_intent, extract_entities
+from app.services.response_engine import generate_final_response
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +36,11 @@ PRODUCT_NOT_FOUND = (
 
 
 class MessagePipeline:
-    def __init__(self, engine: KnowledgeEngine):
+    def __init__(self, engine: KnowledgeEngine, gemini_client=None):
         self._engine = engine
+        # Optional Phase 5 AI client. None = deterministic responses only
+        # (this is also what every existing Phase 1-4 test still exercises).
+        self._gemini_client = gemini_client
         # in-memory context: (business_id, customer_id) -> last entities
         self._context: Dict[Tuple[str, str], Entities] = {}
 
@@ -108,10 +112,19 @@ class MessagePipeline:
         else:
             response = "দুঃখিত, বুঝতে পারিনি। আরেকটু বিস্তারিত বলবেন কি?"
 
+        final_response = generate_final_response(
+            client=self._gemini_client,
+            business_name=business.business_name,
+            customer_message=message,
+            intent=intent_result.intent,
+            retrieved_data=retrieved_data,
+            draft_response=response,
+        )
+
         return {
             "intent": intent_result.intent,
             "entities": asdict(entities),
             "retrieved_data": retrieved_data,
             "confidence": intent_result.confidence,
-            "response": response,
+            "response": final_response,
         }

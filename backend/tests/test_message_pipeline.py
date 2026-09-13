@@ -1,5 +1,6 @@
 import pytest
 
+from app.integrations.gemini.fake_client import FakeGeminiClient
 from app.integrations.sheets.fake_client import FakeSheetsClient
 from app.integrations.sheets.repository import SheetsRepository, BusinessIdRequiredError
 from app.services.knowledge_engine import KnowledgeEngine
@@ -13,6 +14,34 @@ def pipeline():
     repo = SheetsRepository(client)
     engine = KnowledgeEngine(repo)
     return MessagePipeline(engine)
+
+
+def test_no_gemini_client_still_works_deterministically(pipeline):
+    """Phase 1-4 behavior must be untouched when no AI client is wired."""
+    result = pipeline.handle_message("biz_001", "cust_1", "black shirt price koto?")
+    assert "1200" in result["response"]
+
+
+def test_gemini_client_rephrases_when_data_is_grounded():
+    client = FakeSheetsClient(SAMPLE_SHEETS)
+    repo = SheetsRepository(client)
+    engine = KnowledgeEngine(repo)
+    fake_gemini = FakeGeminiClient(canned_response="AI phrased reply")
+    pipeline_with_ai = MessagePipeline(engine, gemini_client=fake_gemini)
+
+    result = pipeline_with_ai.handle_message("biz_001", "cust_1", "black shirt price koto?")
+    assert result["response"] == "AI phrased reply"
+
+
+def test_gemini_client_not_used_when_no_data_found():
+    client = FakeSheetsClient(SAMPLE_SHEETS)
+    repo = SheetsRepository(client)
+    engine = KnowledgeEngine(repo)
+    fake_gemini = FakeGeminiClient(canned_response="should never appear")
+    pipeline_with_ai = MessagePipeline(engine, gemini_client=fake_gemini)
+
+    result = pipeline_with_ai.handle_message("biz_002", "cust_1", "return policy ki?")
+    assert result["response"] != "should never appear"
 
 
 def test_price_inquiry_returns_verified_price(pipeline):
