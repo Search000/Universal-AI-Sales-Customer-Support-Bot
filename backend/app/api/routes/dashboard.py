@@ -116,3 +116,26 @@ def list_services():
     rows.sort(key=lambda r: r.get("service_name", "").lower())
 
     return jsonify({"services": rows, "count": len(rows)}), 200
+
+
+@dashboard_bp.get("/dashboard/faq")
+def list_faq():
+    business_id = request.args.get("business_id")
+    if not business_id:
+        return jsonify({"error": "business_id is required"}), 400
+
+    active_only = request.args.get("active_only") == "true"
+
+    repo = get_repository()
+    try:
+        faqs = repo.list_faqs(business_id)
+    except BusinessIdRequiredError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    rows = [asdict(f) for f in faqs]
+    if active_only:
+        rows = [r for r in rows if str(r.get("active", "")).upper() == "TRUE"]
+
+    rows.sort(key=lambda r: r.get("question", "").lower())
+
+    return jsonify({"faqs": rows, "count": len(rows)}), 200
