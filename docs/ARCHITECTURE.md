@@ -128,3 +128,39 @@ Tested: known-word vs unknown-word detection, per-business isolation of
 the queue, duplicate-suppression, approve requiring a meaning, double
 approve/reject rejected, and the end-to-end route flow
 (message → queued → approved → resolvable vocabulary).
+
+## 9. What Phase 9 delivers (Human Handover)
+
+Implements master-prompt section 20/21: a `human_required` status the
+pipeline computes every turn, without ever changing what the AI is allowed
+to claim about business facts.
+
+- `services/language_engine.py` — new `HUMAN_HANDOVER` intent, checked with
+  the *highest* priority (before greeting/price/etc). Fires on explicit
+  requests for a person ("human", "কাউকে দেন", "ম্যানেজার"...) or angry
+  language ("সার্ভিস খারাপ", "scam", "রিফান্ড দেন"...). `meta.reason` is
+  `human_request` or `angry_customer`.
+- `services/human_handover.py` — pure decision function `evaluate()`.
+  Triggers, in priority order:
+  1. `HUMAN_HANDOVER` intent → always required (reason from meta).
+  2. Order intent with no order engine wired → `unsupported_request`.
+  3. A flatly-missing fact (currently: policy not found →
+     `SAFE_FALLBACK`) → `business_data_unavailable`, immediately (no need
+     to wait for a repeat — we already know we don't have it).
+  4. Two or more consecutive unresolved turns for the same customer (e.g.
+     repeated product-not-found misses) → `repeated_misunderstanding`.
+  A single "product not found" miss does *not* escalate by itself — the
+  bot's own self-service fallback (ask for a photo) gets a chance first.
+- `models/conversation_memory.py` / `services/memory_service.py` — the
+  `CONVERSATIONS` row now also tracks `unresolved_count`, `human_required`,
+  `human_required_reason`, so the streak survives restarts exactly like
+  entity context does (Phase 6). Without a memory_service, the same
+  bookkeeping falls back to an in-memory dict per pipeline instance (same
+  degrade pattern as the Phase 4 entity context).
+- `services/message_pipeline.py` — every `handle_message()` result now
+  includes `human_required` (bool) and `human_required_reason`
+  (str|None) alongside the existing fields.
+
+Tested: intent priority over greeting, all four trigger types, single-miss
+vs repeated-miss behavior, streak reset after a resolved turn, and
+per-customer isolation of the handover status.

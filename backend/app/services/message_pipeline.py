@@ -16,6 +16,7 @@ from dataclasses import asdict
 from typing import Dict, Optional, Tuple
 
 from app.integrations.sheets.repository import BusinessIdRequiredError
+from app.services import human_handover
 from app.services.knowledge_engine import KnowledgeEngine
 from app.services.language_engine import Entities, detect_intent, extract_entities
 from app.services.response_engine import generate_final_response
@@ -36,6 +37,20 @@ ORDER_NOT_AVAILABLE = (
     "দুঃখিত, order placement এই মুহূর্তে available না। "
     "একজন human representative আপনার order confirm করে দেবে।"
 )
+
+NOT_UNDERSTOOD = "দুঃখিত, বুঝতে পারিনি। আরেকটু বিস্তারিত বলবেন কি?"
+
+# Replies that mean "I genuinely don't have this fact" and are severe
+# enough to ask for a human right away (master rule #20: "unavailable
+# business information") — currently just a missing policy, since that's a
+# direct "we have no record of this" case.
+IMMEDIATE_DATA_UNAVAILABLE_RESPONSES = {SAFE_FALLBACK}
+
+# Replies that count as "this turn didn't resolve the customer's need" —
+# used for the repeated-misunderstanding counter. A single miss (e.g. one
+# product search with no match) doesn't need a human yet; several in a row
+# for the same customer does.
+UNRESOLVED_RESPONSES = {SAFE_FALLBACK, PRODUCT_NOT_FOUND, NOT_UNDERSTOOD}
 
 
 class MessagePipeline:
@@ -62,6 +77,8 @@ class MessagePipeline:
         # follow-up learning entry; no fact is ever invented either way).
         self._learning_engine = learning_engine
         self._context: Dict[Tuple[str, str], Entities] = {}
+        # Fallback (no memory_service) tracking of (unresolved_count, human_required)
+        self._handover_context: Dict[Tuple[str, str], Tuple[int, bool]] = {}
 
     def _queue_unknown_terms(self, business_id: str, entities: Entities, message: str) -> None:
         """Phase 8: when a lookup comes back empty, offer the unrecognized
@@ -95,6 +112,8 @@ class MessagePipeline:
                 "retrieved_data": None,
                 "confidence": 0.0,
                 "response": "এই business_id-এর কোনো তথ্য পাওয়া যায়নি।",
+                "human_required": False,
+                "human_required_reason": None,
             }
 
         intent_result = detect_intent(message)
@@ -110,16 +129,23 @@ class MessagePipeline:
             else:
                 remembered = self._context.get(ctx_key)
             entities = remembered or entities
+
+        # Phase 9: how many consecutive turns this customer has gone
+        # unresolved, and whether they were already flagged for a human —
+        # read BEFORE this turn's outcome is known.
+        if self._memory_service is not None:
+            prev_unresolved_count, _ = self._memory_service.get_handover_status(business_id, cust_id)
         else:
-            if self._memory_service is not None:
-                self._memory_service.save(business_id, cust_id, intent_result.intent, entities)
-            else:
-                self._context[ctx_key] = entities
+            prev_unresolved_count, _ = self._handover_context.get(ctx_key, (0, False))
 
         retrieved_data: Optional[dict] = None
         response: str
+        unsupported = False
 
-        if intent_result.intent in ("PRICE_INQUIRY", "AVAILABILITY_INQUIRY", "PRODUCT_SEARCH"):
+        if intent_result.intent == "HUMAN_HANDOVER":
+            response = human_handover.HANDOVER_MESSAGE
+
+        elif intent_result.intent in ("PRICE_INQUIRY", "AVAILABILITY_INQUIRY", "PRODUCT_SEARCH"):
             name_hint = entities.keywords[0] if entities.keywords else None
             products = self._engine.find_products(
                 business_id, name_contains=name_hint, color=entities.color, size=entities.size
@@ -157,6 +183,7 @@ class MessagePipeline:
         elif intent_result.intent == "ORDER_INTENT":
             if self._order_engine is None:
                 response = ORDER_NOT_AVAILABLE
+                unsupported = True
             else:
                 name_hint = entities.keywords[0] if entities.keywords else None
                 candidates = self._engine.find_products(
@@ -192,7 +219,7 @@ class MessagePipeline:
             response = f"আসসালামু আলাইকুম! {business.business_name}-এ স্বাগতম। কিভাবে সাহায্য করতে পারি?"
 
         else:
-            response = "দুঃখিত, বুঝতে পারিনি। আরেকটু বিস্তারিত বলবেন কি?"
+            response = NOT_UNDERSTOOD
 
         final_response = generate_final_response(
             client=self._gemini_client,
@@ -203,10 +230,45 @@ class MessagePipeline:
             draft_response=response,
         )
 
+        # Phase 9: decide human handover status for this turn.
+        data_unavailable = response in IMMEDIATE_DATA_UNAVAILABLE_RESPONSES
+        is_unresolved_this_turn = response in UNRESOLVED_RESPONSES
+        new_unresolved_count = (
+            prev_unresolved_count + 1 if is_unresolved_this_turn else 0
+        )
+        # An explicit human-handover intent isn't itself "unresolved" —
+        # reset the streak so a later, unrelated message isn't penalized.
+        if intent_result.intent == "HUMAN_HANDOVER":
+            new_unresolved_count = 0
+
+        decision = human_handover.evaluate(
+            intent=intent_result.intent,
+            intent_meta=intent_result.meta,
+            unsupported=unsupported,
+            data_unavailable=data_unavailable,
+            unresolved_count=new_unresolved_count,
+        )
+
+        if self._memory_service is not None:
+            self._memory_service.save(
+                business_id,
+                cust_id,
+                intent_result.intent,
+                entities,
+                unresolved_count=new_unresolved_count,
+                human_required=decision.required,
+                human_required_reason=decision.reason or "",
+            )
+        else:
+            self._context[ctx_key] = entities
+            self._handover_context[ctx_key] = (new_unresolved_count, decision.required)
+
         return {
             "intent": intent_result.intent,
             "entities": asdict(entities),
             "retrieved_data": retrieved_data,
             "confidence": intent_result.confidence,
             "response": final_response,
+            "human_required": decision.required,
+            "human_required_reason": decision.reason,
         }

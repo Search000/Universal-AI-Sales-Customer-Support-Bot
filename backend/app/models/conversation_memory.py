@@ -17,6 +17,9 @@ class ConversationMemory:
     last_color: str = ""
     last_size: str = ""
     last_keywords: str = ""  # comma-separated
+    unresolved_count: str = "0"
+    human_required: str = "FALSE"
+    human_required_reason: str = ""
     updated_at: str = ""
 
     @staticmethod
@@ -30,6 +33,9 @@ class ConversationMemory:
             last_color=str(row.get("last_color", "")),
             last_size=str(row.get("last_size", "")),
             last_keywords=str(row.get("last_keywords", "")),
+            unresolved_count=str(row.get("unresolved_count", "0")),
+            human_required=str(row.get("human_required", "FALSE")),
+            human_required_reason=str(row.get("human_required_reason", "")),
             updated_at=str(row.get("updated_at", "")),
         )
 
@@ -41,5 +47,8 @@ class ConversationMemory:
             "last_color": self.last_color,
             "last_size": self.last_size,
             "last_keywords": self.last_keywords,
+            "unresolved_count": self.unresolved_count,
+            "human_required": self.human_required,
+            "human_required_reason": self.human_required_reason,
             "updated_at": self.updated_at,
         }

@@ -39,6 +39,30 @@ def test_greeting_intent():
     assert result.intent == "GREETING"
 
 
+# ---- Phase 9: human handover intent -------------------------------------
+def test_human_request_keyword_detected():
+    result = detect_intent("ভাই কাউকে দেন")
+    assert result.intent == "HUMAN_HANDOVER"
+    assert result.meta["reason"] == "human_request"
+
+
+def test_human_request_english():
+    result = detect_intent("I want to talk to a human agent")
+    assert result.intent == "HUMAN_HANDOVER"
+    assert result.meta["reason"] == "human_request"
+
+
+def test_angry_customer_keyword_detected():
+    result = detect_intent("আপনাদের সার্ভিস খারাপ, refund দেন এখনি")
+    assert result.intent == "HUMAN_HANDOVER"
+    assert result.meta["reason"] == "angry_customer"
+
+
+def test_human_handover_takes_priority_over_greeting():
+    result = detect_intent("hello, কাউকে দেন")
+    assert result.intent == "HUMAN_HANDOVER"
+
+
 def test_unknown_intent_for_gibberish():
     result = detect_intent("   ")
     assert result.intent == "UNKNOWN"

@@ -50,12 +50,30 @@ ORDER_KEYWORDS = [
     "order korte chai", "অর্ডার করতে চাই", "book", "বুক",
 ]
 
+# Phase 9: explicit request to talk to a human, or clear signs the customer
+# is angry/upset. Checked with highest priority — if a customer is asking
+# for a person or is clearly upset, no other intent guess matters more.
+HUMAN_REQUEST_KEYWORDS = [
+    "human", "real person", "agent", "manager", "owner",
+    "মানুষ", "মানুষের সাথে", "কাউকে দেন", "এজেন্ট", "ম্যানেজার",
+    "owner এর সাথে", "ওনার সাথে কথা", "কথা বলিয়ে দেন", "কথা বলতে চাই",
+]
+
+ANGRY_KEYWORDS = [
+    "worst service", "bad service", "scam", "cheater", "fraud",
+    "সার্ভিস খারাপ", "খারাপ সার্ভিস", "বাজে সার্ভিস", "প্রতারণা",
+    "চিটার", "ফালতু", "রিফান্ড দেন", "refund দেন এখনি", "complain",
+    "অভিযোগ",
+]
+
 # Words that should never be treated as a candidate product keyword.
 STOPWORDS = set(
     PRICE_KEYWORDS
     + AVAILABILITY_KEYWORDS
     + GREETING_KEYWORDS
     + ORDER_KEYWORDS
+    + HUMAN_REQUEST_KEYWORDS
+    + ANGRY_KEYWORDS
     + list(COLOR_SYNONYMS.keys())
     + list(SIZE_TOKENS)
     + [
@@ -101,6 +119,12 @@ def _fuzzy_token_hits(tokens: List[str], vocab: List[str], cutoff: float = 0.82)
 def detect_intent(message: str) -> IntentResult:
     text = message.lower().strip()
     tokens = _tokenize(text)
+
+    if _contains_any(text, ANGRY_KEYWORDS):
+        return IntentResult("HUMAN_HANDOVER", 0.95, meta={"reason": "angry_customer"})
+
+    if _contains_any(text, HUMAN_REQUEST_KEYWORDS):
+        return IntentResult("HUMAN_HANDOVER", 0.95, meta={"reason": "human_request"})
 
     if _contains_any(text, GREETING_KEYWORDS):
         return IntentResult("GREETING", 0.9)

@@ -56,3 +56,29 @@ def test_new_memory_service_instance_still_sees_saved_data():
     fresh_service = MemoryService(repo2)
     loaded = fresh_service.load("biz_001", "cust_1")
     assert loaded.color == "black"
+
+
+# ---- Phase 9: handover status persistence -------------------------------
+def test_handover_status_defaults_to_zero_and_false(memory_service):
+    count, required = memory_service.get_handover_status("biz_001", "cust_1")
+    assert count == 0
+    assert required is False
+
+
+def test_handover_status_round_trips(memory_service):
+    memory_service.save(
+        "biz_001", "cust_1", "PRODUCT_SEARCH", Entities(),
+        unresolved_count=1, human_required=True, human_required_reason="repeated_misunderstanding",
+    )
+    count, required = memory_service.get_handover_status("biz_001", "cust_1")
+    assert count == 1
+    assert required is True
+
+
+def test_handover_status_isolated_per_customer(memory_service):
+    memory_service.save(
+        "biz_001", "cust_1", "PRODUCT_SEARCH", Entities(), unresolved_count=2, human_required=True,
+    )
+    count, required = memory_service.get_handover_status("biz_001", "cust_2")
+    assert count == 0
+    assert required is False

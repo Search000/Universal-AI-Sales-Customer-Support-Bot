@@ -12,7 +12,7 @@ memory can never leak into another business's conversation.
 """
 import logging
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Tuple
 
 from app.integrations.sheets.repository import SheetsRepository
 from app.models.conversation_memory import ConversationMemory
@@ -36,7 +36,29 @@ class MemoryService:
             keywords=keywords,
         )
 
-    def save(self, business_id: str, customer_id: str, intent: str, entities: Entities) -> None:
+    def get_handover_status(self, business_id: str, customer_id: str) -> Tuple[int, bool]:
+        """Returns (unresolved_count, human_required) from the last saved
+        turn, so repeated-misunderstanding detection survives restarts too."""
+        memory = self._repo.get_conversation_memory(business_id, customer_id)
+        if memory is None:
+            return 0, False
+        try:
+            count = int(memory.unresolved_count)
+        except (ValueError, TypeError):
+            count = 0
+        required = str(memory.human_required).upper() == "TRUE"
+        return count, required
+
+    def save(
+        self,
+        business_id: str,
+        customer_id: str,
+        intent: str,
+        entities: Entities,
+        unresolved_count: int = 0,
+        human_required: bool = False,
+        human_required_reason: str = "",
+    ) -> None:
         try:
             memory = ConversationMemory(
                 business_id=business_id,
@@ -45,6 +67,9 @@ class MemoryService:
                 last_color=entities.color or "",
                 last_size=entities.size or "",
                 last_keywords=",".join(entities.keywords),
+                unresolved_count=str(unresolved_count),
+                human_required="TRUE" if human_required else "FALSE",
+                human_required_reason=human_required_reason,
                 updated_at=datetime.now(timezone.utc).isoformat(),
             )
             self._repo.save_conversation_memory(memory)

@@ -1,6 +1,6 @@
 @echo off
 REM ============================================
-REM  Phase 8 push helper — just double-click this
+REM  Phase 9 push helper — just double-click this
 REM  Fully automatic: installs deps, tests, commits, pushes.
 REM ============================================
 cd /d "%~dp0"
@@ -31,7 +31,7 @@ cd ..
 echo.
 echo [4/4] Committing and pushing to GitHub...
 git add -A
-git commit -m "Phase 8: learning engine (unknown-term queue + owner approval)"
+git commit -m "Phase 9: human handover (explicit request, angry, unsupported, repeated-miss)"
 git push
 
 echo.
