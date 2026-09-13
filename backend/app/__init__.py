@@ -19,4 +19,7 @@ def create_app() -> Flask:
     from app.api.routes.health import health_bp
     app.register_blueprint(health_bp)
 
+    from app.api.routes.test_message import test_message_bp
+    app.register_blueprint(test_message_bp)
+
     return app

@@ -38,6 +38,11 @@ class KnowledgeEngine:
     def __init__(self, repository: SheetsRepository):
         self._repo = repository
 
+    # ---- BUSINESS --------------------------------------------------------
+    def get_business(self, business_id: str):
+        return self._repo.get_business(business_id)
+
+
     # ---- internal safety check -------------------------------------------
     @staticmethod
     def _assert_owned(business_id: str, items: list, id_field: str = "business_id"):
