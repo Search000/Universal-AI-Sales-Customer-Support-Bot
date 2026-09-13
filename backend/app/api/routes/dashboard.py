@@ -9,6 +9,7 @@ Built gradually per the master prompt (one dashboard section at a time).
 This is Conversations only — Orders/Products/etc. are later sub-phases.
 """
 import logging
+from dataclasses import asdict
 
 from flask import Blueprint, jsonify, request
 
@@ -69,3 +70,26 @@ def list_orders():
     rows.sort(key=lambda r: r.get("created_at", ""), reverse=True)
 
     return jsonify({"orders": rows, "count": len(rows)}), 200
+
+
+@dashboard_bp.get("/dashboard/products")
+def list_products():
+    business_id = request.args.get("business_id")
+    if not business_id:
+        return jsonify({"error": "business_id is required"}), 400
+
+    active_only = request.args.get("active_only") == "true"
+
+    repo = get_repository()
+    try:
+        products = repo.list_products(business_id)
+    except BusinessIdRequiredError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    rows = [asdict(p) for p in products]
+    if active_only:
+        rows = [r for r in rows if str(r.get("active", "")).upper() == "TRUE"]
+
+    rows.sort(key=lambda r: r.get("product_name", "").lower())
+
+    return jsonify({"products": rows, "count": len(rows)}), 200
