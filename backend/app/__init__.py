@@ -31,4 +31,7 @@ def create_app() -> Flask:
     from app.api.routes.whatsapp import whatsapp_bp
     app.register_blueprint(whatsapp_bp)
 
+    from app.api.routes.dashboard import dashboard_bp
+    app.register_blueprint(dashboard_bp)
+
     return app

@@ -250,6 +250,19 @@ class SheetsRepository:
                 return memory
         return None
 
+    def list_conversation_memories(self, business_id: str) -> List[ConversationMemory]:
+        """All known conversation states for a business — the data source
+        for the owner dashboard's Conversations view. Business-scoped like
+        every other lookup here."""
+        business_id = self._require_business_id(business_id)
+        rows = self._client.get_all_records("CONVERSATIONS")
+        results = []
+        for row in rows:
+            memory = ConversationMemory.from_row(row)
+            if memory and memory.business_id == business_id:
+                results.append(memory)
+        return results
+
     def save_conversation_memory(self, memory: ConversationMemory) -> None:
         self._require_business_id(memory.business_id)
         self._client.upsert_row(
