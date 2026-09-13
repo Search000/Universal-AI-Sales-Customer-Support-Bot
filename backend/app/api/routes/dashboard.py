@@ -162,3 +162,26 @@ def list_policies():
     rows.sort(key=lambda r: r.get("policy_type", "").lower())
 
     return jsonify({"policies": rows, "count": len(rows)}), 200
+
+
+@dashboard_bp.get("/dashboard/vocabulary")
+def list_vocabulary():
+    business_id = request.args.get("business_id")
+    if not business_id:
+        return jsonify({"error": "business_id is required"}), 400
+
+    # Owner dashboard shows everything by default (approved AND any
+    # manually-added unapproved terms) — pass approved_only=true to filter
+    # down to just the trusted, in-use vocabulary.
+    approved_only = request.args.get("approved_only") == "true"
+
+    repo = get_repository()
+    try:
+        vocab = repo.list_vocabulary(business_id, approved_only=approved_only)
+    except BusinessIdRequiredError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    rows = [v.to_row() for v in vocab]
+    rows.sort(key=lambda r: r.get("term", "").lower())
+
+    return jsonify({"vocabulary": rows, "count": len(rows)}), 200
