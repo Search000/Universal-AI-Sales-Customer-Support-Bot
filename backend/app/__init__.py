@@ -25,4 +25,7 @@ def create_app() -> Flask:
     from app.api.routes.learning import learning_bp
     app.register_blueprint(learning_bp)
 
+    from app.api.routes.facebook import facebook_bp
+    app.register_blueprint(facebook_bp)
+
     return app

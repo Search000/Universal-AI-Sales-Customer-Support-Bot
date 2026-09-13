@@ -17,14 +17,17 @@ from app.services.memory_service import MemoryService
 from app.services.order_engine import OrderEngine
 from app.services.learning_engine import LearningEngine
 from app.integrations.gemini.client import GeminiClient
+from app.integrations.facebook.client import FacebookClient, FakeFacebookClient
 
 logger = logging.getLogger(__name__)
 
 _pipeline: MessagePipeline | None = None
+_repo: SheetsRepository | None = None
+_facebook_client = None
 
 
 def get_message_pipeline() -> MessagePipeline:
-    global _pipeline
+    global _pipeline, _repo
     if _pipeline is not None:
         return _pipeline
 
@@ -39,6 +42,7 @@ def get_message_pipeline() -> MessagePipeline:
         )
 
     repo = SheetsRepository(client)
+    _repo = repo
     engine = KnowledgeEngine(repo)
     memory_service = MemoryService(repo)
     order_engine = OrderEngine(engine, repo)
@@ -70,3 +74,32 @@ def get_learning_engine() -> LearningEngine:
     data source (real Sheets or fake, whichever get_message_pipeline set up)."""
     get_message_pipeline()
     return _pipeline._learning_engine
+
+
+def get_repository() -> SheetsRepository:
+    """Reuses the same repository the pipeline was built with, so the
+    Facebook webhook's business lookup and the pipeline's data lookups are
+    always looking at the same data source (real Sheets or fake)."""
+    get_message_pipeline()
+    return _repo
+
+
+def get_facebook_client():
+    """Real Send API client if a page access token is configured, otherwise
+    a no-network fake for local dev/testing (mirrors the Gemini fallback
+    pattern above — never crash the app just because a channel isn't
+    configured yet)."""
+    global _facebook_client
+    if _facebook_client is not None:
+        return _facebook_client
+
+    if config.META_PAGE_ACCESS_TOKEN:
+        _facebook_client = FacebookClient(config.META_PAGE_ACCESS_TOKEN)
+        logger.info("Facebook Send API configured")
+    else:
+        _facebook_client = FakeFacebookClient()
+        logger.warning(
+            "META_PAGE_ACCESS_TOKEN not set — Facebook replies will be "
+            "logged only, not actually sent."
+        )
+    return _facebook_client

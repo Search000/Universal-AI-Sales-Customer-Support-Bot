@@ -49,6 +49,24 @@ class SheetsRepository:
                 return biz
         return None
 
+    def get_business_by_facebook_page_id(self, page_id: str) -> Optional[Business]:
+        """Identify WHICH business a Messenger webhook event belongs to.
+
+        This is the one lookup allowed to run before a business_id is known —
+        that's the whole point (Messenger tells us the Page ID, not the
+        business_id). It still never returns data from more than one
+        business: it stops at the first exact page-id match.
+        """
+        page_id = str(page_id or "").strip()
+        if not page_id:
+            return None
+        rows = self._client.get_all_records("BUSINESSES")
+        for row in rows:
+            biz = Business.from_row(row)
+            if biz and str(biz.facebook_page_id or "").strip() == page_id:
+                return biz
+        return None
+
     # ---- PRODUCTS ------------------------------------------------------
     def list_products(self, business_id: str) -> List[Product]:
         business_id = self._require_business_id(business_id)

@@ -9,7 +9,7 @@ SAMPLE_SHEETS = {
             "business_id": "biz_001",
             "business_name": "Rupa Fashion",
             "business_type": "clothing",
-            "facebook_page_id": "",
+            "facebook_page_id": "page_test_001",
             "whatsapp_phone_number_id": "",
             "phone": "01700000001",
             "email": "rupa@example.com",
