@@ -37,4 +37,7 @@ def create_app() -> Flask:
     from app.api.routes.follow_up import follow_up_bp
     app.register_blueprint(follow_up_bp)
 
+    from app.api.routes.onboarding import onboarding_bp
+    app.register_blueprint(onboarding_bp)
+
     return app

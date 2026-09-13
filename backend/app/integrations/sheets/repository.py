@@ -61,6 +61,20 @@ class SheetsRepository:
             row=business.__dict__,
         )
 
+    def create_business(self, business: Business) -> None:
+        """Onboard a brand-new client. Refuses to run if a business with
+        this business_id already exists — creation and update are kept as
+        separate, explicit operations so one can never silently do the
+        other's job."""
+        self._require_business_id(business.business_id)
+        if self.get_business(business.business_id) is not None:
+            raise ValueError(f"business_id '{business.business_id}' already exists")
+        self._client.upsert_row(
+            "BUSINESSES",
+            key_fields={"business_id": business.business_id},
+            row=business.__dict__,
+        )
+
     def get_business_by_facebook_page_id(self, page_id: str) -> Optional[Business]:
         """Identify WHICH business a Messenger webhook event belongs to.
 

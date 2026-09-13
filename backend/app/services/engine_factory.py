@@ -136,3 +136,18 @@ def get_whatsapp_client():
             "logged only, not actually sent."
         )
     return _whatsapp_client
+
+
+def reset_for_tests():
+    """Clear every cached singleton so the next get_*() call rebuilds it
+    from whatever config is active at that moment. The test suite's
+    autouse fixture calls this before/after every test so real credentials
+    sitting in a developer's local .env can never leak into test runs —
+    each test gets a fresh, fake-backed pipeline unless it explicitly
+    configures otherwise."""
+    global _pipeline, _repo, _facebook_client, _whatsapp_client, _follow_up_engine
+    _pipeline = None
+    _repo = None
+    _facebook_client = None
+    _whatsapp_client = None
+    _follow_up_engine = None

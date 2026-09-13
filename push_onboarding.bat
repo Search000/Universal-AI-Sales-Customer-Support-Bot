@@ -1,6 +1,6 @@
 @echo off
 REM ============================================
-REM  Phase 14 push helper — just double-click this
+REM  Onboarding feature push helper — just double-click this
 REM  Fully automatic: installs deps, tests, commits, pushes.
 REM ============================================
 cd /d "%~dp0"
@@ -31,7 +31,7 @@ cd ..
 echo.
 echo [4/4] Committing and pushing to GitHub...
 git add -A
-git commit -m "Phase 14: security/QA audit (owner API auth, webhook production guard, sheet-injection sanitization, rate limiting, prompt-leakage scrub)"
+git commit -m "Add one-click client onboarding (create_business + /dashboard/onboard form)"
 git push
 
 echo.
@@ -40,7 +40,8 @@ echo   DONE. Scroll up and check for any red
 echo   ERROR lines. If everything looks OK,
 echo   you can close this window.
 echo.
-echo   IMPORTANT: before going live, set OWNER_API_KEY
-echo   in backend\.env — see docs\SECURITY_AUDIT.md
+echo   New page: open http://localhost:8000/dashboard/onboard
+echo   in your browser (with the server running) to add
+echo   a new client business with one click.
 echo ============================================
 pause

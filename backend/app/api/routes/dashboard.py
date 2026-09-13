@@ -9,11 +9,14 @@ Built gradually per the master prompt (one dashboard section at a time).
 This is Conversations only — Orders/Products/etc. are later sub-phases.
 """
 import logging
+import secrets
 from dataclasses import asdict
+from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request
 
 from app.integrations.sheets.repository import BusinessIdRequiredError
+from app.models.business import Business
 from app.services.engine_factory import get_repository
 from app.services.security import check_owner_api_key
 
@@ -27,6 +30,56 @@ def _enforce_owner_auth():
     """Every /dashboard/* route is owner-only (Phase 14) — see
     app.services.security.check_owner_api_key for the enforcement rule."""
     return check_owner_api_key()
+
+
+@dashboard_bp.post("/dashboard/businesses")
+def create_business():
+    """One-click client onboarding: give it a business name/type/contact
+    info, it generates a unique business_id and writes the new row to the
+    BUSINESSES sheet. This is the ONLY route allowed to create a business —
+    everything else in the app only ever reads or updates an existing one."""
+    data = request.get_json(silent=True) or {}
+
+    business_name = (data.get("business_name") or "").strip()
+    business_type = (data.get("business_type") or "").strip()
+    if not business_name or not business_type:
+        return jsonify({"error": "business_name and business_type are required"}), 400
+
+    repo = get_repository()
+
+    # Astronomically unlikely to collide, but retry a few times rather than
+    # trust that blindly.
+    business_id = None
+    for _ in range(5):
+        candidate = "biz_" + secrets.token_hex(4)
+        if repo.get_business(candidate) is None:
+            business_id = candidate
+            break
+    if business_id is None:
+        return jsonify({"error": "could not generate a unique business_id, try again"}), 500
+
+    business = Business(
+        business_id=business_id,
+        business_name=business_name,
+        business_type=business_type,
+        facebook_page_id=data.get("facebook_page_id", ""),
+        whatsapp_phone_number_id=data.get("whatsapp_phone_number_id", ""),
+        phone=data.get("phone", ""),
+        email=data.get("email", ""),
+        address=data.get("address", ""),
+        opening_hours=data.get("opening_hours", ""),
+        currency=data.get("currency", "BDT"),
+        default_language=data.get("default_language", "bn"),
+        status="active",
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )
+
+    try:
+        repo.create_business(business)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 409
+
+    return jsonify({"status": "created", "business": asdict(business)}), 201
 
 
 @dashboard_bp.get("/dashboard/conversations")
