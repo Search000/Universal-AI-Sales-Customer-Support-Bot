@@ -13,3 +13,11 @@ class FakeSheetsClient:
 
     def get_all_records(self, sheet_name: str) -> List[Dict]:
         return self._data.get(sheet_name, [])
+
+    def upsert_row(self, sheet_name: str, key_fields: Dict, row: Dict) -> None:
+        rows = self._data.setdefault(sheet_name, [])
+        for existing in rows:
+            if all(str(existing.get(k, "")) == str(v) for k, v in key_fields.items()):
+                existing.update(row)
+                return
+        rows.append(dict(row))

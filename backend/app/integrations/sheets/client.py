@@ -18,6 +18,12 @@ class SheetClient(Protocol):
     def get_all_records(self, sheet_name: str) -> List[Dict]:
         ...
 
+    def upsert_row(self, sheet_name: str, key_fields: Dict, row: Dict) -> None:
+        """Find the row matching all key_fields and overwrite it with row;
+        if no match exists, append row as a new one. Used for anything the
+        app needs to write back (e.g. conversation memory, Phase 6)."""
+        ...
+
 
 class GoogleSheetsClient:
     """Real Google Sheets backend. Requires GOOGLE_SERVICE_ACCOUNT_FILE and
@@ -58,3 +64,25 @@ class GoogleSheetsClient:
             logger.error("Sheet tab '%s' not found: %s", sheet_name, exc)
             return []
         return worksheet.get_all_records()
+
+    def upsert_row(self, sheet_name: str, key_fields: Dict, row: Dict) -> None:
+        spreadsheet = self._connect()
+        try:
+            worksheet = spreadsheet.worksheet(sheet_name)
+        except Exception as exc:
+            logger.error("Sheet tab '%s' not found: %s", sheet_name, exc)
+            return
+
+        header = worksheet.row_values(1)
+        records = worksheet.get_all_records()
+
+        for idx, existing in enumerate(records, start=2):  # row 1 is the header
+            if all(str(existing.get(k, "")) == str(v) for k, v in key_fields.items()):
+                merged = {**existing, **row}
+                values = [merged.get(col, "") for col in header]
+                worksheet.update(f"A{idx}", [values])
+                return
+
+        # No matching row — append a new one, in header column order.
+        values = [row.get(col, "") for col in header]
+        worksheet.append_row(values)

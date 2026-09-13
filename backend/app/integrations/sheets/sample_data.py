@@ -152,4 +152,5 @@ SAMPLE_SHEETS = {
             "updated_at": "2026-01-01",
         },
     ],
+    "CONVERSATIONS": [],
 }

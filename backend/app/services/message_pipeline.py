@@ -1,17 +1,15 @@
 """
-Message Pipeline (Phase 4).
+Message Pipeline (Phase 4, extended in Phase 5 and 6).
 
 INCOMING MESSAGE -> language engine (intent + entities, global knowledge
 only) -> knowledge engine (retrieve ONLY matching verified business data)
--> simple safe response.
+-> Gemini-phrased response grounded in that data (Phase 5), with safe
+deterministic fallback -> memory saved for next turn (Phase 6).
 
-This is intentionally NOT an AI/LLM call yet — that is Phase 5. This phase
-proves the retrieval-before-response discipline: if the business data
-doesn't back up a claim, the response says so instead of guessing
-(master rules #2 and #3).
-
-Context handling here is in-memory only (lost on restart) — persistent
-customer memory is Phase 6.
+Context handling: if a memory_service (Phase 6) is wired in, customer
+context is persisted via the repository (survives restarts). Otherwise
+falls back to the original Phase 4 in-memory-only dict, so every existing
+Phase 1-4 test keeps working unchanged.
 """
 import logging
 from dataclasses import asdict
@@ -36,12 +34,14 @@ PRODUCT_NOT_FOUND = (
 
 
 class MessagePipeline:
-    def __init__(self, engine: KnowledgeEngine, gemini_client=None):
+    def __init__(self, engine: KnowledgeEngine, gemini_client=None, memory_service=None):
         self._engine = engine
         # Optional Phase 5 AI client. None = deterministic responses only
         # (this is also what every existing Phase 1-4 test still exercises).
         self._gemini_client = gemini_client
-        # in-memory context: (business_id, customer_id) -> last entities
+        # Optional Phase 6 persistent memory. None = old in-memory-only dict,
+        # lost on restart (still what plain Phase 1-4 tests exercise).
+        self._memory_service = memory_service
         self._context: Dict[Tuple[str, str], Entities] = {}
 
     def handle_message(self, business_id: str, customer_id: str, message: str) -> dict:
@@ -64,10 +64,20 @@ class MessagePipeline:
         entities = extract_entities(message)
 
         ctx_key = (business_id, customer_id or "anonymous")
-        if not entities.color and not entities.size and not entities.keywords:
-            entities = self._context.get(ctx_key, entities)
+        cust_id = customer_id or "anonymous"
+        has_new_entities = bool(entities.color or entities.size or entities.keywords)
+
+        if not has_new_entities:
+            if self._memory_service is not None:
+                remembered = self._memory_service.load(business_id, cust_id)
+            else:
+                remembered = self._context.get(ctx_key)
+            entities = remembered or entities
         else:
-            self._context[ctx_key] = entities
+            if self._memory_service is not None:
+                self._memory_service.save(business_id, cust_id, intent_result.intent, entities)
+            else:
+                self._context[ctx_key] = entities
 
         retrieved_data: Optional[dict] = None
         response: str

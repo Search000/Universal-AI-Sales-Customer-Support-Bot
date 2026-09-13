@@ -4,6 +4,7 @@ from app.integrations.gemini.fake_client import FakeGeminiClient
 from app.integrations.sheets.fake_client import FakeSheetsClient
 from app.integrations.sheets.repository import SheetsRepository, BusinessIdRequiredError
 from app.services.knowledge_engine import KnowledgeEngine
+from app.services.memory_service import MemoryService
 from app.services.message_pipeline import MessagePipeline, PRODUCT_NOT_FOUND
 from tests.sample_data import SAMPLE_SHEETS
 
@@ -42,6 +43,30 @@ def test_gemini_client_not_used_when_no_data_found():
 
     result = pipeline_with_ai.handle_message("biz_002", "cust_1", "return policy ki?")
     assert result["response"] != "should never appear"
+
+
+def test_memory_service_persists_context_across_pipeline_restarts():
+    """Without memory_service, a new MessagePipeline instance forgets
+    everything (old Phase 4 behavior). With memory_service wired to a
+    shared underlying store, a 'restarted' pipeline still remembers."""
+    shared_client = FakeSheetsClient(SAMPLE_SHEETS)
+
+    repo1 = SheetsRepository(shared_client)
+    engine1 = KnowledgeEngine(repo1)
+    memory1 = MemoryService(repo1)
+    pipeline1 = MessagePipeline(engine1, memory_service=memory1)
+    pipeline1.handle_message("biz_001", "cust_1", "black shirt ache?")
+
+    # Simulate a restart: brand new engine/pipeline objects, same backing store.
+    repo2 = SheetsRepository(shared_client)
+    engine2 = KnowledgeEngine(repo2)
+    memory2 = MemoryService(repo2)
+    pipeline2 = MessagePipeline(engine2, memory_service=memory2)
+
+    result = pipeline2.handle_message("biz_001", "cust_1", "koto dam?")
+    assert result["intent"] == "PRICE_INQUIRY"
+    assert "black" in result["entities"]["color"].lower() if result["entities"]["color"] else False
+    assert "1200" in result["response"]
 
 
 def test_price_inquiry_returns_verified_price(pipeline):

@@ -15,6 +15,7 @@ from app.models.faq import FAQ
 from app.models.policy import Policy
 from app.models.business_rule import BusinessRule
 from app.models.vocabulary import Vocabulary
+from app.models.conversation_memory import ConversationMemory
 
 logger = logging.getLogger(__name__)
 
@@ -153,3 +154,23 @@ class SheetsRepository:
             if vocab.term.lower() == term.lower():
                 return vocab
         return None
+
+    # ---- CONVERSATION_MEMORY (Phase 6) ---------------------------------
+    def get_conversation_memory(
+        self, business_id: str, customer_id: str
+    ) -> Optional[ConversationMemory]:
+        business_id = self._require_business_id(business_id)
+        rows = self._client.get_all_records("CONVERSATIONS")
+        for row in rows:
+            memory = ConversationMemory.from_row(row)
+            if memory and memory.business_id == business_id and memory.customer_id == customer_id:
+                return memory
+        return None
+
+    def save_conversation_memory(self, memory: ConversationMemory) -> None:
+        self._require_business_id(memory.business_id)
+        self._client.upsert_row(
+            "CONVERSATIONS",
+            key_fields={"business_id": memory.business_id, "customer_id": memory.customer_id},
+            row=memory.to_row(),
+        )

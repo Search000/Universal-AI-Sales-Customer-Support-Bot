@@ -12,6 +12,9 @@ Create one Google Sheet. Add these tabs (exact names, all-caps):
 First row of each tab = column headers (see `docs/ARCHITECTURE.md` sheet
 column lists, or ask me and I'll paste the exact header row for any tab).
 
+`CONVERSATIONS` tab columns (Phase 6 — persistent per-customer memory):
+`business_id, customer_id, last_intent, last_color, last_size, last_keywords, updated_at`
+
 ## 2. Create a Google service account (so the bot can read/write)
 1. Go to https://console.cloud.google.com/
 2. Create a project (any name).

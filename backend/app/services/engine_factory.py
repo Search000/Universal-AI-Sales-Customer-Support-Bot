@@ -13,6 +13,7 @@ from app.integrations.sheets.repository import SheetsRepository
 from app.integrations.sheets.sample_data import SAMPLE_SHEETS
 from app.services.knowledge_engine import KnowledgeEngine
 from app.services.message_pipeline import MessagePipeline
+from app.services.memory_service import MemoryService
 from app.integrations.gemini.client import GeminiClient
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,7 @@ def get_message_pipeline() -> MessagePipeline:
 
     repo = SheetsRepository(client)
     engine = KnowledgeEngine(repo)
+    memory_service = MemoryService(repo)
 
     gemini_client = None
     if config.GEMINI_API_KEY:
@@ -48,5 +50,5 @@ def get_message_pipeline() -> MessagePipeline:
     else:
         logger.warning("GEMINI_API_KEY not set — using deterministic template responses only")
 
-    _pipeline = MessagePipeline(engine, gemini_client=gemini_client)
+    _pipeline = MessagePipeline(engine, gemini_client=gemini_client, memory_service=memory_service)
     return _pipeline
