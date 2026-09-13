@@ -13,10 +13,17 @@ from flask import Blueprint, jsonify, request
 
 from app.integrations.sheets.repository import BusinessIdRequiredError
 from app.services.engine_factory import get_follow_up_engine
+from app.services.security import check_owner_api_key
 
 logger = logging.getLogger(__name__)
 
 follow_up_bp = Blueprint("follow_up", __name__)
+
+
+@follow_up_bp.before_request
+def _enforce_owner_auth():
+    """Every /follow-up/* route is owner-only (Phase 14)."""
+    return check_owner_api_key()
 
 
 def _require_business_id():

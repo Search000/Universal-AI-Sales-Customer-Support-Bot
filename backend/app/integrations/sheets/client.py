@@ -8,6 +8,7 @@ import logging
 from typing import List, Dict, Protocol
 
 from app.config import config
+from app.services.security import sanitize_row
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,14 @@ class GoogleSheetsClient:
         return worksheet.get_all_records()
 
     def upsert_row(self, sheet_name: str, key_fields: Dict, row: Dict) -> None:
+        # Neutralize spreadsheet-formula-injection payloads (Phase 14)
+        # before anything ever reaches a real Google Sheet — this is the
+        # one chokepoint every write in the whole app passes through, so
+        # it's the right place to enforce this once rather than at every
+        # call site (some of which carry raw customer-typed text, e.g. the
+        # learning queue's term/context fields).
+        row = sanitize_row(row)
+
         spreadsheet = self._connect()
         try:
             worksheet = spreadsheet.worksheet(sheet_name)

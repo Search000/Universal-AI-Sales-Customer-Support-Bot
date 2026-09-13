@@ -4,10 +4,23 @@ from flask import Blueprint, jsonify, request
 
 from app.integrations.sheets.repository import BusinessIdRequiredError
 from app.services.engine_factory import get_message_pipeline
+from app.services.security import check_owner_api_key, check_rate_limit
 
 logger = logging.getLogger(__name__)
 
 test_message_bp = Blueprint("test_message", __name__)
+
+
+@test_message_bp.before_request
+def _enforce_auth_and_rate_limit():
+    """/test/message is a developer/owner tool, not a real customer
+    channel (Facebook/WhatsApp webhooks are) — so it gets the same
+    owner-only protection as the dashboard, plus a rate limit since it
+    can trigger real Gemini/Sheets calls per request."""
+    blocked = check_owner_api_key()
+    if blocked is not None:
+        return blocked
+    return check_rate_limit()
 
 
 @test_message_bp.post("/test/message")

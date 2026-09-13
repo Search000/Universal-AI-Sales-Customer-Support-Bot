@@ -12,10 +12,19 @@ from flask import Blueprint, jsonify, request
 from app.integrations.sheets.repository import BusinessIdRequiredError
 from app.services.engine_factory import get_learning_engine
 from app.services.learning_engine import LearningEngineError
+from app.services.security import check_owner_api_key
 
 logger = logging.getLogger(__name__)
 
 learning_bp = Blueprint("learning", __name__)
+
+
+@learning_bp.before_request
+def _enforce_owner_auth():
+    """Every /learning/* route is owner-only (Phase 14) — approving a
+    term into trusted vocabulary is exactly the kind of action that must
+    never be reachable by an anonymous caller."""
+    return check_owner_api_key()
 
 
 @learning_bp.get("/learning")

@@ -1,6 +1,6 @@
 @echo off
 REM ============================================
-REM  Phase 13 push helper — just double-click this
+REM  Phase 14 push helper — just double-click this
 REM  Fully automatic: installs deps, tests, commits, pushes.
 REM ============================================
 cd /d "%~dp0"
@@ -31,7 +31,7 @@ cd ..
 echo.
 echo [4/4] Committing and pushing to GitHub...
 git add -A
-git commit -m "Phase 13: Follow-up / sales automation (abandoned detection, recommendations, upsell, segmentation)"
+git commit -m "Phase 14: security/QA audit (owner API auth, webhook production guard, sheet-injection sanitization, rate limiting, prompt-leakage scrub)"
 git push
 
 echo.
@@ -39,5 +39,8 @@ echo ============================================
 echo   DONE. Scroll up and check for any red
 echo   ERROR lines. If everything looks OK,
 echo   you can close this window.
+echo.
+echo   IMPORTANT: before going live, set OWNER_API_KEY
+echo   in backend\.env — see docs\SECURITY_AUDIT.md
 echo ============================================
 pause

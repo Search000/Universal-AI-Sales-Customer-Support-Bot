@@ -12,6 +12,8 @@ import logging
 
 from flask import Blueprint, jsonify, request
 
+import hmac
+
 from app.config import config
 from app.integrations.facebook.client import verify_signature
 from app.services.engine_factory import (
@@ -19,6 +21,7 @@ from app.services.engine_factory import (
     get_message_pipeline,
     get_repository,
 )
+from app.services.security import check_rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +34,12 @@ def verify_webhook():
     token = request.args.get("hub.verify_token")
     challenge = request.args.get("hub.challenge", "")
 
-    if mode == "subscribe" and token and token == config.META_VERIFY_TOKEN:
+    if (
+        mode == "subscribe"
+        and token
+        and config.META_VERIFY_TOKEN
+        and hmac.compare_digest(token, config.META_VERIFY_TOKEN)
+    ):
         logger.info("Facebook webhook verified")
         return challenge, 200
 
@@ -41,15 +49,26 @@ def verify_webhook():
 
 @facebook_bp.post("/webhooks/facebook")
 def receive_webhook():
+    limited = check_rate_limit()
+    if limited is not None:
+        return limited
+
     raw_body = request.get_data()
 
-    # Signature check only enforced once an app secret is actually
-    # configured — lets local dev/testing POST without a real Meta signature.
     if config.META_APP_SECRET:
         signature = request.headers.get("X-Hub-Signature-256", "")
         if not verify_signature(config.META_APP_SECRET, raw_body, signature):
             logger.warning("Facebook webhook signature verification failed")
             return jsonify({"error": "invalid signature"}), 403
+    elif config.is_production():
+        # Never accept unsigned webhook traffic in production — that would
+        # let anyone POST fake "customer messages" that trigger real
+        # Gemini calls, Sheets writes, and outbound replies.
+        logger.critical(
+            "META_APP_SECRET is not set while APP_ENV=production — "
+            "refusing all Facebook webhook events until it is configured."
+        )
+        return jsonify({"error": "webhook not configured"}), 503
 
     data = request.get_json(silent=True) or {}
     repo = get_repository()

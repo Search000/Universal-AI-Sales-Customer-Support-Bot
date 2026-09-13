@@ -31,6 +31,18 @@ class Config:
     WHATSAPP_ACCESS_TOKEN: str = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
     WHATSAPP_PHONE_NUMBER_ID: str = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "")
 
+    # Owner/dashboard API protection (Phase 14). When set, every owner-facing
+    # endpoint (dashboard, learning queue, follow-up, /test/message) requires
+    # header "X-API-Key: <this value>". Never enforced against webhooks —
+    # those are authenticated by Meta's own signature instead.
+    OWNER_API_KEY: str = os.getenv("OWNER_API_KEY", "")
+
+    # Simple in-memory rate limiting (Phase 14). Zero-cost/local-first, so
+    # no external rate-limiting service — just a per-process request cap.
+    # Good enough for a single-instance deployment; a multi-instance
+    # deployment would need a shared store instead.
+    RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
+
     @classmethod
     def is_production(cls) -> bool:
         return cls.APP_ENV == "production"

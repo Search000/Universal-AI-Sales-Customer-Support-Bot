@@ -15,10 +15,18 @@ from flask import Blueprint, jsonify, request
 
 from app.integrations.sheets.repository import BusinessIdRequiredError
 from app.services.engine_factory import get_repository
+from app.services.security import check_owner_api_key
 
 logger = logging.getLogger(__name__)
 
 dashboard_bp = Blueprint("dashboard", __name__)
+
+
+@dashboard_bp.before_request
+def _enforce_owner_auth():
+    """Every /dashboard/* route is owner-only (Phase 14) — see
+    app.services.security.check_owner_api_key for the enforcement rule."""
+    return check_owner_api_key()
 
 
 @dashboard_bp.get("/dashboard/conversations")
