@@ -250,3 +250,52 @@ def update_settings():
     repo.update_business(business)
 
     return jsonify({"status": "updated", "updated_fields": updated_fields, "settings": asdict(business)}), 200
+
+
+@dashboard_bp.get("/dashboard/analytics")
+def get_analytics():
+    """Simple counts/totals an owner cares about at a glance. Deliberately
+    basic for this sub-phase — no time-windowing or charts yet, just
+    trustworthy numbers pulled straight from verified business data."""
+    business_id = request.args.get("business_id")
+    if not business_id:
+        return jsonify({"error": "business_id is required"}), 400
+
+    repo = get_repository()
+    try:
+        conversations = repo.list_conversation_memories(business_id)
+        orders = repo.list_orders(business_id)
+        products = repo.list_products(business_id)
+        services = repo.list_services(business_id)
+        pending_learning = repo.list_learning_queue(business_id, status="pending")
+    except BusinessIdRequiredError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    orders_by_status = {}
+    total_revenue = 0.0
+    for order in orders:
+        orders_by_status[order.status] = orders_by_status.get(order.status, 0) + 1
+        try:
+            total_revenue += float(order.total_price)
+        except (ValueError, TypeError):
+            # Never let one malformed row crash the whole analytics call —
+            # just skip it from the revenue sum.
+            pass
+
+    conversations_needing_human = sum(
+        1 for c in conversations if str(c.human_required).upper() == "TRUE"
+    )
+
+    return jsonify(
+        {
+            "business_id": business_id,
+            "total_conversations": len(conversations),
+            "conversations_needing_human": conversations_needing_human,
+            "total_orders": len(orders),
+            "orders_by_status": orders_by_status,
+            "total_revenue": total_revenue,
+            "total_products": len(products),
+            "total_services": len(services),
+            "pending_learning_queue": len(pending_learning),
+        }
+    ), 200

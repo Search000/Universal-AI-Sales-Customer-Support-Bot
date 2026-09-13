@@ -31,7 +31,7 @@ cd ..
 echo.
 echo [4/4] Committing and pushing to GitHub...
 git add -A
-git commit -m "Phase 12: Owner dashboard - Learning Queue (existing) + Settings"
+git commit -m "Phase 12: Owner dashboard - Analytics (Phase 12 complete)"
 git push
 
 echo.
