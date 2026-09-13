@@ -43,3 +43,29 @@ def list_conversations():
     rows.sort(key=lambda r: r.get("updated_at", ""), reverse=True)
 
     return jsonify({"conversations": rows, "count": len(rows)}), 200
+
+
+@dashboard_bp.get("/dashboard/orders")
+def list_orders():
+    business_id = request.args.get("business_id")
+    if not business_id:
+        return jsonify({"error": "business_id is required"}), 400
+
+    customer_id = request.args.get("customer_id")
+    status = request.args.get("status")
+
+    repo = get_repository()
+    try:
+        orders = repo.list_orders(business_id, customer_id=customer_id)
+    except BusinessIdRequiredError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    rows = [o.to_row() for o in orders]
+    if status:
+        rows = [r for r in rows if r.get("status") == status]
+
+    # Newest first — same reasoning as Conversations: an owner opening the
+    # dashboard wants to see the latest activity, not the oldest.
+    rows.sort(key=lambda r: r.get("created_at", ""), reverse=True)
+
+    return jsonify({"orders": rows, "count": len(rows)}), 200

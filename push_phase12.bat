@@ -1,6 +1,6 @@
 @echo off
 REM ============================================
-REM  Phase 12.1 push helper — just double-click this
+REM  Phase 12.2 push helper — just double-click this
 REM  Fully automatic: installs deps, tests, commits, pushes.
 REM ============================================
 cd /d "%~dp0"
@@ -31,7 +31,7 @@ cd ..
 echo.
 echo [4/4] Committing and pushing to GitHub...
 git add -A
-git commit -m "Phase 12.1: Owner dashboard - Conversations view"
+git commit -m "Phase 12.2: Owner dashboard - Orders view"
 git push
 
 echo.
