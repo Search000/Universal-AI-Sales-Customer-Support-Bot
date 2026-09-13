@@ -13,6 +13,8 @@ from app.models.product import Product
 from app.models.service import Service
 from app.models.faq import FAQ
 from app.models.policy import Policy
+from app.models.business_rule import BusinessRule
+from app.models.vocabulary import Vocabulary
 
 logger = logging.getLogger(__name__)
 
@@ -111,4 +113,43 @@ class SheetsRepository:
         for policy in self.list_policies(business_id):
             if policy.policy_type.lower() == policy_type.lower():
                 return policy
+        return None
+
+    # ---- BUSINESS_RULES ----------------------------------------------
+    def list_business_rules(self, business_id: str) -> List[BusinessRule]:
+        business_id = self._require_business_id(business_id)
+        rows = self._client.get_all_records("BUSINESS_RULES")
+        results = []
+        for row in rows:
+            rule = BusinessRule.from_row(row)
+            if rule and rule.business_id == business_id:
+                results.append(rule)
+        return results
+
+    def get_business_rule(self, business_id: str, rule_name: str) -> Optional[BusinessRule]:
+        for rule in self.list_business_rules(business_id):
+            if rule.rule_name.lower() == rule_name.lower():
+                return rule
+        return None
+
+    # ---- VOCABULARY (business-specific only, never shared) -----------
+    def list_vocabulary(self, business_id: str, approved_only: bool = True) -> List[Vocabulary]:
+        business_id = self._require_business_id(business_id)
+        rows = self._client.get_all_records("VOCABULARY")
+        results = []
+        for row in rows:
+            vocab = Vocabulary.from_row(row)
+            if not vocab or vocab.business_id != business_id:
+                continue
+            if approved_only and str(vocab.approved).upper() != "TRUE":
+                continue
+            results.append(vocab)
+        return results
+
+    def resolve_vocabulary_term(self, business_id: str, term: str) -> Optional[Vocabulary]:
+        """Look up ONLY this business's approved vocabulary for a term.
+        Never falls back to another business's meaning for the same word."""
+        for vocab in self.list_vocabulary(business_id, approved_only=True):
+            if vocab.term.lower() == term.lower():
+                return vocab
         return None
