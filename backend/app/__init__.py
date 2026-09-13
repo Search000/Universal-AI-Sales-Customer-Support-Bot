@@ -28,4 +28,7 @@ def create_app() -> Flask:
     from app.api.routes.facebook import facebook_bp
     app.register_blueprint(facebook_bp)
 
+    from app.api.routes.whatsapp import whatsapp_bp
+    app.register_blueprint(whatsapp_bp)
+
     return app

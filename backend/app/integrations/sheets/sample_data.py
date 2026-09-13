@@ -25,7 +25,7 @@ SAMPLE_SHEETS = {
             "business_name": "Style Cuts Salon",
             "business_type": "salon",
             "facebook_page_id": "",
-            "whatsapp_phone_number_id": "",
+            "whatsapp_phone_number_id": "wa_test_002",
             "phone": "01700000002",
             "email": "stylecuts@example.com",
             "address": "Chattogram",

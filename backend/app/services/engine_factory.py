@@ -18,12 +18,14 @@ from app.services.order_engine import OrderEngine
 from app.services.learning_engine import LearningEngine
 from app.integrations.gemini.client import GeminiClient
 from app.integrations.facebook.client import FacebookClient, FakeFacebookClient
+from app.integrations.whatsapp.client import WhatsAppClient, FakeWhatsAppClient
 
 logger = logging.getLogger(__name__)
 
 _pipeline: MessagePipeline | None = None
 _repo: SheetsRepository | None = None
 _facebook_client = None
+_whatsapp_client = None
 
 
 def get_message_pipeline() -> MessagePipeline:
@@ -103,3 +105,22 @@ def get_facebook_client():
             "logged only, not actually sent."
         )
     return _facebook_client
+
+
+def get_whatsapp_client():
+    """Real Cloud API client if an access token is configured, otherwise a
+    no-network fake for local dev/testing (mirrors get_facebook_client)."""
+    global _whatsapp_client
+    if _whatsapp_client is not None:
+        return _whatsapp_client
+
+    if config.WHATSAPP_ACCESS_TOKEN:
+        _whatsapp_client = WhatsAppClient(config.WHATSAPP_ACCESS_TOKEN)
+        logger.info("WhatsApp Cloud API configured")
+    else:
+        _whatsapp_client = FakeWhatsAppClient()
+        logger.warning(
+            "WHATSAPP_ACCESS_TOKEN not set — WhatsApp replies will be "
+            "logged only, not actually sent."
+        )
+    return _whatsapp_client

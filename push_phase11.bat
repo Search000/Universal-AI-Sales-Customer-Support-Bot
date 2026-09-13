@@ -1,6 +1,6 @@
 @echo off
 REM ============================================
-REM  Phase 10 push helper — just double-click this
+REM  Phase 11 push helper — just double-click this
 REM  Fully automatic: installs deps, tests, commits, pushes.
 REM ============================================
 cd /d "%~dp0"
@@ -31,7 +31,7 @@ cd ..
 echo.
 echo [4/4] Committing and pushing to GitHub...
 git add -A
-git commit -m "Phase 10: Facebook Messenger webhook (verify, signature check, business-isolated routing, Send API reply)"
+git commit -m "Phase 11: WhatsApp Cloud API webhook (verify, signature check, business-isolated routing, Send API reply)"
 git push
 
 echo.

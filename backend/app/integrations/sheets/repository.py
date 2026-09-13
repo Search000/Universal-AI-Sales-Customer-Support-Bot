@@ -67,6 +67,20 @@ class SheetsRepository:
                 return biz
         return None
 
+    def get_business_by_whatsapp_phone_number_id(self, phone_number_id: str) -> Optional[Business]:
+        """Identify WHICH business a WhatsApp webhook event belongs to,
+        mirroring get_business_by_facebook_page_id above — same reasoning,
+        different channel identifier."""
+        phone_number_id = str(phone_number_id or "").strip()
+        if not phone_number_id:
+            return None
+        rows = self._client.get_all_records("BUSINESSES")
+        for row in rows:
+            biz = Business.from_row(row)
+            if biz and str(biz.whatsapp_phone_number_id or "").strip() == phone_number_id:
+                return biz
+        return None
+
     # ---- PRODUCTS ------------------------------------------------------
     def list_products(self, business_id: str) -> List[Product]:
         business_id = self._require_business_id(business_id)
